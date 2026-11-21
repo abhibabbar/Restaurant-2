@@ -1,0 +1,105 @@
+import { useEffect, useMemo, useState } from 'react';
+import { BrowserRouter, Link, useLocation } from 'react-router-dom';
+import ArrowDown from 'lucide-react/dist/esm/icons/arrow-down.js';
+import ArrowRight from 'lucide-react/dist/esm/icons/arrow-right.js';
+import ArrowUpRight from 'lucide-react/dist/esm/icons/arrow-up-right.js';
+import Clock3 from 'lucide-react/dist/esm/icons/clock-3.js';
+import MapPin from 'lucide-react/dist/esm/icons/map-pin.js';
+import MenuIcon from 'lucide-react/dist/esm/icons/menu.js';
+import Phone from 'lucide-react/dist/esm/icons/phone.js';
+import Plus from 'lucide-react/dist/esm/icons/plus.js';
+import UtensilsCrossed from 'lucide-react/dist/esm/icons/utensils-crossed.js';
+import X from 'lucide-react/dist/esm/icons/x.js';
+const Search = ({ size = 24 }: {size?: number}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>;
+import { site, whatsappLink } from './data/site';
+import { dishes } from './data/menu';
+import { pages } from './data/pages';
+
+const photos = {
+  hero: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=2200&q=88',
+  food: 'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=1200&q=85',
+  room: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1500&q=85',
+};
+
+function Site() {
+  const location = useLocation();
+  const route = location.pathname;
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [query, setQuery] = useState('');
+  const [cart, setCart] = useState<Record<string, number>>(() => {
+    try { return JSON.parse(localStorage.getItem('aja-order') || '{}') as Record<string, number>; } catch { return {}; }
+  });
+  const [cartOpen, setCartOpen] = useState(false);
+  const [orderNote, setOrderNote] = useState('');
+  const page = pages.find(item => item[0] === route);
+
+  useEffect(() => {
+    setMobileOpen(false);
+    window.scrollTo(0, 0);
+    document.title = page?.[2] ?? pages[0][2];
+    document.querySelector('meta[name="description"]')?.setAttribute('content', page?.[3] ?? pages[0][3]);
+    const canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]') ?? document.head.appendChild(document.createElement('link'));
+    canonical.rel = 'canonical'; canonical.href = `https://aja-world-kitchen-bar.netlify.app${route}`;
+    for (const [property, value] of [['og:title', page?.[2] ?? pages[0][2]], ['og:description', page?.[3] ?? pages[0][3]], ['og:type', 'website']] as const) {
+      let tag = document.querySelector<HTMLMetaElement>(`meta[property="${property}"]`);
+      if (!tag) { tag = document.createElement('meta'); tag.setAttribute('property', property); document.head.appendChild(tag); }
+      tag.content = value;
+    }
+    let schema = document.getElementById('restaurant-schema') as HTMLScriptElement | null;
+    if (!schema) { schema = document.createElement('script'); schema.id = 'restaurant-schema'; schema.type = 'application/ld+json'; document.head.appendChild(schema); }
+    schema.textContent = JSON.stringify({ '@context': 'https://schema.org', '@type': 'Restaurant', name: site.name, telephone: site.phone, address: { '@type': 'PostalAddress', streetAddress: 'SCO 129, 130, 131, Madhya Marg, Sector 9', addressLocality: 'Chandigarh', postalCode: '160009', addressCountry: 'IN' }, servesCuisine: site.cuisines, url: 'https://aja-world-kitchen-bar.netlify.app', hasMap: site.maps });
+  }, [route]);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 45);
+    window.addEventListener('scroll', onScroll);
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  useEffect(() => { localStorage.setItem('aja-order', JSON.stringify(cart)); }, [cart]);
+
+  const openWhatsApp = (message: string) => window.open(whatsappLink(message), '_blank', 'noopener,noreferrer');
+  const updateCart = (name: string, delta: number) => setCart(previous => {
+    const next = { ...previous, [name]: (previous[name] ?? 0) + delta };
+    if (next[name] <= 0) delete next[name];
+    return next;
+  });
+  const submitOrder = () => {
+    const lines = Object.entries(cart).map(([name, quantity]) => `${name} × ${quantity}`).join('\n');
+    openWhatsApp(`Hello AJA Team, I’d like to ask about placing an order.\n\nItems:\n${lines}${orderNote ? `\n\nNote: ${orderNote}` : ''}\n\nPlease confirm current availability, prices and ordering options.`);
+  };
+  const categories = [...new Set(dishes.map(dish => dish.category))];
+  const shownDishes = useMemo(() => dishes.filter(dish => `${dish.name} ${dish.category} ${dish.description ?? ''}`.toLowerCase().includes(query.toLowerCase())), [query]);
+  const navItems = [['/', 'Home'], ['/our-story', 'Our story'], ['/menu', 'Menu'], ['/experience', 'Experience'], ['/gallery', 'Gallery'], ['/private-events', 'Private events']];
+
+  const Navigation = () => <>{navItems.map(([url, label]) => <Link key={url} to={url} className={route === url ? 'active' : ''}>{label}</Link>)}</>;
+  const ContactDetails = () => <div className="contact-details"><span className="eyebrow">COME FIND US</span><address>{site.address.map(line => <span key={line}>{line}</span>)}</address><a href={`tel:${site.phoneLink}`}>{site.phone}</a><a href={site.maps} target="_blank" rel="noreferrer">Get directions <ArrowUpRight size={14}/></a></div>;
+
+  const MenuPage = () => <main className="inner-page"><div className="page-heading"><span className="eyebrow">A LITTLE SOMETHING FOR EVERY MOOD</span><h1>Good things,<br/><i>gathered here.</i></h1><p>Browse the menu and message our team for today’s prices and availability.</p><div className="searchbox"><Search size={17}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search the menu" aria-label="Search menu"/>{query && <button onClick={() => setQuery('')} aria-label="Clear search"><X size={16}/></button>}</div></div><div className="menu-cats">{categories.map(category => <a key={category} href={`#${category.replace(/ /g, '-')}`}>{category}</a>)}</div>{categories.map(category => {
+    const items = shownDishes.filter(dish => dish.category === category);
+    if (!items.length) return null;
+    return <section className="menu-section" id={category.replace(/ /g, '-')} key={category}><div className="menu-section-title"><span className="eyebrow">FROM OUR KITCHEN</span><h2>{category}</h2></div><div className="dish-grid">{items.map((dish, index) => <article className="dish" key={dish.name}><div className="dish-number">{String(index + 1).padStart(2, '0')}</div><div><h3>{dish.name}</h3>{dish.description && <p>{dish.description}</p>}</div><button className="text-cta" onClick={() => updateCart(dish.name, 1)}>{cart[dish.name] ? `ADDED · ${cart[dish.name]}` : 'ADD TO ORDER'} <Plus size={14}/></button></article>)}</div></section>;
+  })}{shownDishes.length === 0 && <p className="no-results">No menu items found. Try another search.</p>}<p className="fine-print">Menu selections and descriptions are based on publicly available listings and may change. Please confirm prices, ingredients and availability directly with AJA.</p></main>;
+
+  const EnquiryForm = ({ kind }: {kind: 'table' | 'event'}) => <form className="enquiry-form" onSubmit={event => {
+    event.preventDefault(); const data = new FormData(event.currentTarget); const name = String(data.get('name')); const date = String(data.get('date')); const guests = String(data.get('guests')); const note = String(data.get('note'));
+    const message = kind === 'table' ? `Hello AJA Team, I’d like to request a table.\nName: ${name}\nDate: ${date}\nGuests: ${guests}\nNote: ${note}\nPlease let me know if this is available.` : `Hello AJA Team, I’d like to enquire about a group gathering.\nName: ${name}\nDate: ${date}\nGuests: ${guests}\nDetails: ${note}\nPlease share what may be possible.`;
+    openWhatsApp(message);
+  }}><label>Your name<input required name="name" autoComplete="name"/></label><div className="form-row"><label>Preferred date<input required type="date" name="date" min={new Date().toISOString().slice(0, 10)}/></label><label>Number of guests<input required type="number" name="guests" min="1" max="40" defaultValue="2"/></label></div><label>{kind === 'table' ? 'Anything we should know?' : 'A little about your occasion'}<textarea name="note" rows={3} placeholder="Optional"/></label><button className="button button-dark" type="submit">SEND AN ENQUIRY <ArrowUpRight size={16}/></button><small>This is a request only. Your {kind === 'table' ? 'table' : 'event'} is not confirmed until AJA replies.</small></form>;
+
+  const Home = () => <><section className="hero"><img className="hero-image" src={photos.hero} alt="An intimate dining setting in warm evening light"/><div className="hero-shade"/><div className="hero-content"><span className="eyebrow">AJA &nbsp; / &nbsp; WORLD KITCHEN & BAR</span><h1>A world of flavour.<br/><i>A feeling of home.</i></h1><p>Thoughtful food, good drinks and the kind of moments you want to linger in.</p><div className="hero-actions"><Link to="/menu" className="button button-light">EXPLORE THE MENU <ArrowRight size={16}/></Link><Link to="/reservations" className="hero-link">BOOK A TABLE <ArrowUpRight size={16}/></Link></div></div><div className="hero-bottom"><span>{site.tagline}</span><a href="#intro" aria-label="Scroll to discover"><ArrowDown size={18}/></a><span>SECTOR 9 · CHANDIGARH</span></div></section><section className="intro-section" id="intro"><div><span className="eyebrow">AJA · CHANDIGARH</span><h2>Not just a meal.<br/><i>A place to feel good.</i></h2></div><div className="intro-right"><p>A world kitchen and bar for everyday nice. Pull up a chair, find a new favourite, and make a little more time for the people around you.</p><Link className="text-cta" to="/our-story">A LITTLE ABOUT AJA <ArrowRight size={15}/></Link></div></section><section className="menu-feature"><div className="feature-photo"><img src={photos.food} alt="A colourful freshly prepared meal"/><span className="photo-caption">A WORLD OF GOOD THINGS</span></div><div className="feature-copy"><span className="eyebrow">MADE TO BE DISCOVERED</span><h2>Something for<br/><i>every appetite.</i></h2><p>From bright bowls and comforting pasta to oven-kissed pizza, there’s always another flavour to find.</p><Link className="button button-dark" to="/menu">TAKE A LOOK AT THE MENU <ArrowRight size={15}/></Link><small>Ask our team for current prices and availability.</small></div></section><section className="experience"><div><span className="eyebrow">ROOM FOR ONE MORE</span><h2>Come as you are.<br/><i>Stay a little.</i></h2><p>Good food has a way of turning an ordinary day into a reason to get together.</p><Link className="text-cta" to="/experience">THE AJA EXPERIENCE <ArrowRight size={15}/></Link></div><img src={photos.room} alt="A dining room ready for guests"/></section><section className="reservation-band"><span className="eyebrow">YOUR TABLE IS WAITING</span><h2>Make room for<br/><i>something nice.</i></h2><Link to="/reservations" className="button button-light">REQUEST A TABLE <ArrowUpRight size={15}/></Link><small>Requests are confirmed directly by our team.</small></section><section className="visit-strip"><div><span className="eyebrow">FIND YOUR WAY TO AJA</span><h2>Meet us in<br/><i>Sector Nine.</i></h2><ContactDetails/></div><a href={site.maps} target="_blank" rel="noreferrer" className="visit-map"><MapPin size={24}/><span>CHANDIGARH, INDIA</span><b>GET DIRECTIONS <ArrowUpRight size={14}/></b></a></section></>;
+
+  let content;
+  if (route === '/' || !page) content = <Home/>;
+  else if (route === '/menu' || route === '/order-online') content = <MenuPage/>;
+  else if (route === '/reservations' || route === '/private-events') content = <main className="split-page"><div className="split-image" style={{backgroundImage: `url(${photos.room})`}}/><div className="split-copy"><span className="eyebrow">{route === '/reservations' ? 'SAVE YOUR SEAT' : 'GATHER A LITTLE CLOSER'}</span><h1>{route === '/reservations' ? <>Make room for<br/><i>something nice.</i></> : <>A reason to<br/><i>come together.</i></>}</h1><p>{route === '/reservations' ? 'Share your preferred date and party size. Our team will get back to you on WhatsApp.' : 'Tell us a little about your group. We’ll be happy to talk through your enquiry.'}</p><EnquiryForm kind={route === '/reservations' ? 'table' : 'event'}/></div></main>;
+  else if (route === '/contact') content = <main className="inner-page contact-page"><span className="eyebrow">WE’RE EASY TO FIND</span><h1>Come on <i>over.</i></h1><div className="contact-layout"><ContactDetails/><div className="map-frame"><iframe title="Map showing AJA World Kitchen & Bar" src="https://maps.google.com/maps?q=SCO%20129%20Madhya%20Marg%20Sector%209%20Chandigarh&t=&z=15&ie=UTF8&iwloc=&output=embed" loading="lazy" referrerPolicy="no-referrer-when-downgrade"/><a href={site.maps} target="_blank" rel="noreferrer">OPEN IN MAPS <ArrowUpRight size={14}/></a></div></div><div className="hours-note"><Clock3/><p>For today’s hours, please check the latest listing or call ahead.</p><a href={`tel:${site.phoneLink}`}>Call AJA</a></div></main>;
+  else if (route === '/our-story' || route === '/experience') content = <main className="story-page"><div className="story-hero"><img src={photos.room} alt="A warm contemporary dining room"/><div><span className="eyebrow">{route === '/our-story' ? 'AJA · CHANDIGARH' : 'AROUND THE TABLE'}</span><h1>{route === '/our-story' ? <>A world of flavour.<br/><i>A feeling of home.</i></> : <>Good food.<br/><i>Good company.</i></>}</h1></div></div><section className="story-text"><span className="eyebrow">{site.tagline}</span><h2>For the everyday<br/><i>and everything after.</i></h2><p>AJA is a world kitchen and bar in Sector 9, Chandigarh. The menu brings together familiar comforts and flavours from around the world, made for the moments that are better shared.</p><Link className="text-cta" to="/menu">GET TO KNOW THE MENU <ArrowRight size={15}/></Link></section></main>;
+  else if (route === '/gallery') content = <main className="inner-page"><div className="page-heading"><span className="eyebrow">A FEW MOMENTS AT AJA</span><h1>Pull up a <i>chair.</i></h1><p>A small glimpse of the food and places that bring people together.</p></div><div className="gallery-grid">{[photos.hero, photos.food, photos.room].map((src, index) => <img key={src} src={src} alt={['A thoughtfully set restaurant table', 'A freshly prepared dish', 'A warm contemporary dining space'][index]}/>)}</div></main>;
+  else if (route === '/faq') content = <main className="inner-page"><div className="page-heading"><span className="eyebrow">THE USEFUL THINGS</span><h1>A few quick <i>answers.</i></h1></div><div className="faq-list">{[['Where can I find AJA?', 'We are at SCO 129, 130, 131, Madhya Marg, Sector 9, Chandigarh 160009.'], ['How do I request a table?', 'Send us your preferred date and party size through the reservation enquiry. Our team will reply to confirm availability.'], ['Can I order through this website?', 'You can ask us about menu items and current ordering options on WhatsApp. This site does not confirm delivery or payment.'], ['Can you share ingredients or dietary information?', 'Please message or call our team about specific ingredients and dietary needs.'], ['What are your opening hours?', 'Hours can change. Please check the current public listing or call AJA before visiting.'], ['Can I enquire about a group gathering?', 'Yes. Use our private events enquiry and our team will discuss your request.']].map(([question, answer]) => <details key={question}><summary>{question}<Plus size={16}/></summary><p>{answer}</p></details>)}</div></main>;
+  else if (route === '/privacy-policy' || route === '/terms') content = <main className="inner-page legal"><span className="eyebrow">AJA · WORLD KITCHEN & BAR</span><h1>{route === '/privacy-policy' ? 'Privacy policy' : 'Website terms'}</h1><p className="updated">Last updated: 21 November 2026</p>{route === '/privacy-policy' ? <><h2>Information you share</h2><p>This website does not ask you to create an account or submit personal information to a database. If you choose to use a WhatsApp link, the message and information you include are sent to WhatsApp and AJA through that service.</p><h2>Cookies and analytics</h2><p>This website does not intentionally use advertising cookies or analytics trackers.</p><h2>Contact</h2><p>Questions? Call AJA at <a href={`tel:${site.phoneLink}`}>{site.phone}</a>.</p></> : <><h2>Menu information</h2><p>Menu items and descriptions are provided as a guide from publicly available listings. Please contact AJA to verify current menu, price, ingredients and availability.</p><h2>Enquiries</h2><p>WhatsApp forms send a request to the restaurant. A table or event is not confirmed until AJA replies. No payment is taken on this website.</p><h2>External services</h2><p>Links to Maps, WhatsApp and third-party listings are operated by their respective providers.</p></>}</main>;
+  else content = <main className="inner-page"><span className="eyebrow">AJA · CHANDIGARH</span><h1>{page?.[1]}</h1><p>Find out more by reaching our team directly.</p><a className="button button-dark" href={whatsappLink('Hello AJA Team, I have a question.')}>MESSAGE AJA <ArrowUpRight/></a></main>;
+
+  return <><header className={`header ${scrolled || route !== '/' ? 'solid' : ''}`}><Link to="/" className="wordmark" aria-label="AJA home">AJA<span>WORLD KITCHEN & BAR</span></Link><nav className="desktop-nav"><Navigation/></nav><div className="header-actions"><Link to="/order-online" className="order-link">ORDER ENQUIRY</Link><Link to="/reservations" className="book-link">BOOK A TABLE</Link></div><button className="mobile-toggle" onClick={() => setMobileOpen(!mobileOpen)} aria-label={mobileOpen ? 'Close menu' : 'Open menu'}>{mobileOpen ? <X/> : <MenuIcon/>}</button></header>{mobileOpen && <div className="mobile-menu"><nav><Navigation/><Link to="/order-online">Order enquiry</Link><Link to="/reservations" className="mobile-book">Request a table <ArrowUpRight/></Link></nav><span>EVERYDAY NICE. · CHANDIGARH</span></div>}{content}{Object.keys(cart).length > 0 && <button className="cart-trigger" onClick={() => setCartOpen(true)} aria-label={`Open order enquiry, ${Object.values(cart).reduce((sum, qty) => sum + qty, 0)} items`}><UtensilsCrossed size={16}/><span>ORDER ENQUIRY</span><b>{Object.values(cart).reduce((sum, qty) => sum + qty, 0)}</b></button>}{cartOpen && <div className="cart-backdrop" onClick={() => setCartOpen(false)}><aside className="cart-panel" onClick={event => event.stopPropagation()}><div className="cart-head"><div><span className="eyebrow">YOUR SELECTION</span><h2>Ask AJA</h2></div><button onClick={() => setCartOpen(false)} aria-label="Close order enquiry"><X/></button></div>{Object.entries(cart).length === 0 ? <p className="cart-empty">Your selection is empty.</p> : <><div className="cart-items">{Object.entries(cart).map(([name, quantity]) => <div className="cart-item" key={name}><strong>{name}</strong><div><button onClick={() => updateCart(name, -1)} aria-label={`Remove one ${name}`}>−</button><span>{quantity}</span><button onClick={() => updateCart(name, 1)} aria-label={`Add one ${name}`}>+</button><button className="remove-item" onClick={() => setCart(previous => { const next = { ...previous }; delete next[name]; return next; })}>Remove</button></div></div>)}</div><label className="cart-note">Order note<textarea rows={3} value={orderNote} onChange={event => setOrderNote(event.target.value)} placeholder="Optional"/></label><p className="cart-disclaimer">Prices and availability are confirmed by AJA. This is an enquiry, not a confirmed order.</p><button className="button button-dark cart-send" onClick={submitOrder}>CONTINUE TO WHATSAPP <ArrowUpRight size={16}/></button></>}</aside></div>}<footer className="footer"><div className="footer-top"><Link to="/" className="wordmark">AJA<span>WORLD KITCHEN & BAR</span></Link><span className="eyebrow">{site.tagline}</span><a className="footer-contact" href={`tel:${site.phoneLink}`}><Phone size={15}/>{site.phone}</a></div><div className="footer-bottom"><div className="footer-links">{pages.slice(1, 10).map(item => <Link key={item[0]} to={item[0]}>{item[1]}</Link>)}</div><div className="footer-legal"><Link to="/privacy-policy">Privacy</Link><Link to="/terms">Terms</Link><span>© AJA Chandigarh</span></div></div></footer><nav className="bottom-bar"><a href={`tel:${site.phoneLink}`}><Phone/><span>CALL</span></a><Link to="/menu"><UtensilsCrossed/><span>MENU</span></Link><Link to="/order-online"><ArrowUpRight/><span>ORDER</span></Link><Link to="/reservations"><Plus/><span>BOOK</span></Link></nav></>;
+}
+
+export default function Root() { return <BrowserRouter><Site/></BrowserRouter>; }

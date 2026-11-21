@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://aja-world-kitchen-bar.netlify.app/sitemap.xml
